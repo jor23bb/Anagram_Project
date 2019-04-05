@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Anagram Homepage</title>
+        <meta charset="utf-8" />
+
+        <!-- CSS -->
+<!--         <link rel="stylesheet" href="normalize.css" /> -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}" />
+
+        <!-- JQuery -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+        <script src="http://code.jquery.com/ui/1.9.2/jquery-ui.js"></script>
+
+    </head>
+<body>
+	<div id="post-wrapper"> 
+        <h4>Add Words To Corpus</h4>
+        <textarea class="main-textarea" id="post-textarea" rows="3" cols="50"></textarea>
+        <button class="submit" id="post-submit-button">Submit</button>
+        <button id="file-upload-button">Upload Text File</button>
+        <input type="checkbox" name="proper-noun" id="proper-noun"> Include Proper Nouns?
+	</div>
+
+    <div id="get-wrapper"> 
+        <h4>Get Anagrams</h4>
+        <textarea class="main-textarea" id="get-textarea" rows="3" cols="50"></textarea>
+        <h5>Maximum Results Per Word</h5>
+        <textarea id="max-num-results-textarea" rows="1" cols="2"></textarea>
+        <button class="submit" id="get-submit-button">Submit</button>
+        <button id="get-stats-button">Get Stats</button>
+        <button id="get-all-button">Get Full List</button>
+    </div>
+
+    <div id="modal-wrapper">
+        <div id="modal-content">
+            <span class="close">&times;</span>
+            <p id="modal-text"></p>
+        </div>
+    </div>
+
+    <div id="deletion-wrapper"> 
+        <h4>Delete Words From Corpus</h4>
+        <textarea class="main-textarea" id="deletion-textarea" rows="3" cols="50"></textarea>
+        <input type="checkbox" name="delete-associated-anagrams" id="delete-associated-anagrams"> Delete All Anagrams of Given Words?
+        <button class="submit" id="deletion-submit-button">Submit</button>
+        <button id="delete-everything-button">Delete Everything</button>
+    </div>
+
+
+
+<!-- <script type="text/javascript" src="{{ url_for('static', filename='js/handlebars.js') }}"></script> -->
+<script type="text/javascript" src="{{ url_for('static', filename='js/index.js') }}"></script>
+
+</body>
+</html>
