@@ -40,7 +40,7 @@
 			return
 		}
 		console.log(words);
-		var uri = '../../anagrams';
+		var uri = 'https://ibotta-anagram-project.herokuapp.com/anagrams';
 
 		if (document.getElementById('proper-noun').checked){
 			uri += '?proper_nouns=true'
@@ -67,7 +67,7 @@
 
 //consider having the python version change its response from {anagrams: [word1 word2]} to {originial_word: [word 1, word 2]}
 	function get_request(get_all){
-		var uri = '../../anagrams';
+		var uri = 'https://ibotta-anagram-project.herokuapp.com/anagrams';
 
 		if (!get_all){
 			var words;
@@ -109,7 +109,7 @@
 	}
 
 	function delete_request(delete_all){
-		var uri = '../../';
+		var uri = 'https://ibotta-anagram-project.herokuapp.com/';
 
 		if (!delete_all){
 			//for when users submit an empty text area / one with only non-alpha characters
@@ -149,7 +149,7 @@
 
 	function stat_request(){
 
-		var uri = '../../stats';
+		var uri = 'https://ibotta-anagram-project.herokuapp.com/stats';
 
 		$.ajax({
 			type: 'GET',
