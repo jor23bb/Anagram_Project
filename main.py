@@ -176,9 +176,9 @@ def update_stats_post_multiple_deletion(key):
 
 
 #FLASK CODE
-template_folder = os.path.abspath('HTML')
+# template_folder = os.path.abspath('HTML')
 # static_folder = os.path.abspath('static')
-app = Flask(__name__, template_folder = template_folder)
+app = Flask(__name__)
 
 #not sure why this has occasionally been necessary...
 app.secret_key = 'secret'
