@@ -39,7 +39,7 @@
 			document.getElementById('post-textarea').value = '';
 			return
 		}
-		console.log(words);
+		
 		var uri = 'https://ibotta-anagram-project.herokuapp.com/anagrams';
 
 		if (document.getElementById('proper-noun').checked){

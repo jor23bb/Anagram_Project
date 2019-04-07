@@ -2,26 +2,40 @@ from flask import Flask, jsonify, make_response, abort, flash, request, render_t
 import json
 import heapq
 import os
+import redis
+
+my_redis = redis.Redis(host="ibotta-anagram-project.herokuapp.com", port=5000, db=0)
+
+my_redis.set('anagram_dict', {})
+my_redis.set(total_word_count, 0)
+my_redis.set(min_word_length, 25)
+my_redis.set(max_word_length, 0)
+my_redis.set(avg_word_length, float(0))
+my_redis.set(min_heap_for_median, [])
+my_redis.set(max_heap_for_median, [])
+my_redis.set(max_num_anagrams, 0)
+my_redis.set(words_with_most_anagrams, [])
+
 
 #NOTE: EVEN IF 'USE PROPER NOUNS' IS ENABLED, PROPER NOUNS ARE STORED AS SEPARATE FROM THEIR LOWERCASE COUNTERPARTS, AKA 'Mike' & 'mike' ARE STORED AS TWO DISTINCT STRINGS. SO CALLING 'DELETE' ON 'mike' WILL NOT DELETE THE OTHER, AND VICE VERSA
 
-anagram_dict = {}
-most_anagrams_dict = {}
+# anagram_dict = {}
+# most_anagrams_dict = {}
 
-#EXTRAS
+# #EXTRAS
 
-#Stats
-total_word_count = 0
-min_word_length = 25 #replace later after determining what our maximum allowable word length will be
-max_word_length = 0
-avg_word_length = float(0)
-min_heap_for_median = []
-max_heap_for_median = []
+# #Stats
+# total_word_count = 0
+# min_word_length = 25 #replace later after determining what our maximum allowable word length will be
+# max_word_length = 0
+# avg_word_length = float(0)
+# min_heap_for_median = []
+# max_heap_for_median = []
 
 #Most Anagrams
 #As currently constructed, array will not be sorted. Will have all related anagrams sorted, followed by each other group of anagrams
-max_num_anagrams = 0
-words_with_most_anagrams = []
+# max_num_anagrams = 0
+# words_with_most_anagrams = []
 
 
 #HELPER FUNCTIONS
@@ -55,9 +69,12 @@ def bsearch(arr, target):
 	return helper(arr, target, 0, len(arr) - 1)
 
 def adding_to_median(word_length):
-	global total_word_count
-	global max_heap_for_median
-	global min_heap_for_median
+	# global total_word_count
+	# global max_heap_for_median
+	# global min_heap_for_median
+	total_word_count = my_redis.get('total_word_count')
+	max_heap_for_median = my_redis.get('max_heap_for_median')
+	min_heap_for_median = my_redis.get('min_heap_for_median')
 
 	if total_word_count % 2 == 0:
 		heapq.heappush(max_heap_for_median, -1 * word_length)
@@ -73,9 +90,13 @@ def adding_to_median(word_length):
 		heapq.heappush(min_heap_for_median, new_min)
 
 def get_median_word_length():
-	global total_word_count
-	global min_heap_for_median
-	global max_heap_for_median
+	# global total_word_count
+	# global min_heap_for_median
+	# global max_heap_for_median
+
+	total_word_count = my_redis.get('total_word_count')
+	max_heap_for_median = my_redis.get('max_heap_for_median')
+	min_heap_for_median = my_redis.get('min_heap_for_median')
 
 	if total_word_count % 2 == 0:
 		return (min_heap_for_median[0] + -1*max_heap_for_median[0]) / 2
@@ -83,23 +104,35 @@ def get_median_word_length():
 
 #this is for when adding numbers, not removing them
 def calc_new_avg_word_length(new_word_length):
-	global avg_word_length
-	global total_word_count
+	# global avg_word_length
+	# global total_word_count
+
+	avg_word_length = my_redis.get('avg_word_length')
+	total_word_count = my_redis.get('total_word_count')
 
 	#in this total_word_count has already been updated, which is why 1 isn't added to the denominator
 	return avg_word_length + (new_word_length - avg_word_length)/float(total_word_count)
 
 #need to deal with updating the median
 def update_stats_post_single_deletion(word):
-	global max_heap_for_median
-	global min_heap_for_median
-	global total_word_count
-	global avg_word_length
-	global anagram_dict
-	global min_word_length
-	global max_word_length
-	global max_num_anagrams
-	global words_with_most_anagrams
+	# global max_heap_for_median
+	# global min_heap_for_median
+	# global total_word_count
+	# global avg_word_length
+	# global anagram_dict
+	# global min_word_length
+	# global max_word_length
+	# global max_num_anagrams
+	# global words_with_most_anagrams
+
+	avg_word_length = my_redis.get('avg_word_length')
+	total_word_count = my_redis.get('total_word_count')
+	max_heap_for_median = my_redis.get('max_heap_for_median')
+	min_heap_for_median = my_redis.get('min_heap_for_median')
+	anagram_dict = my_redis.get('anagram_dict')
+
+
+
 
 	l = len(word)
 
@@ -110,6 +143,7 @@ def update_stats_post_single_deletion(word):
 
 		new_min = -1 * heapq.heappop(max_heap_for_median)
 		heapq.heappush(min_heap_for_median, new_min)
+
 	else:
 		max_heap_for_median.remove(-1*l)
 		heapq.heapify(max_heap_for_median)
@@ -118,60 +152,80 @@ def update_stats_post_single_deletion(word):
 			new_max = -1 * heapq.heappop(min_heap_for_median)
 			heapq.heappush(max_heap_for_median, new_max)
 
-	avg_word_length = (avg_word_length*total_word_count - l)/(total_word_count - 1)
-	total_word_count -= 1
+	my_redis.set('min_heap_for_median', min_heap_for_median)
+	my_redis.set('max_heap_for_median', max_heap_for_median)
+
+	# avg_word_length = (avg_word_length*total_word_count - l)/(total_word_count - 1)
+	my_redis.set('avg_word_length', (avg_word_length*total_word_count - l)/(total_word_count - 1))
+	# total_word_count -= 1
+	my_redis.decr('total_word_count')
+
 
 	if not sort_word(word) in anagram_dict:
 		if l == min_word_length:
 			keys = anagram_dict.keys()
-			min_word_length = len(min(keys, key=len))
+			# min_word_length = len(min(keys, key=len))
+			my_redis.set('min_word_length', len(min(keys, key=len)))
 		if l == max_word_length:
 			keys = anagram_dict.keys()
-			max_word_length = len(max(keys, key=len))
-	else:
-		l = len(anagram_dict[sort_word(word)]) + 1
-		if l == max_num_anagrams:
-			if len(words_with_most_anagrams) == l:
-				#need to update both
-				pass
-			else:
-				#remove word + everything remaining in the anagram dict from the 'words with most anagrams'
-				pass
+			# max_word_length = len(max(keys, key=len))
+			my_redis.get('max_word_length', len(max(keys, key=len)))
+
+	# else:
+	# 	l = len(anagram_dict[sort_word(word)]) + 1
+	# 	if l == max_num_anagrams:
+	# 		if len(words_with_most_anagrams) == l:
+	# 			#need to update both
+	# 			pass
+	# 		else:
+	# 			#remove word + everything remaining in the anagram dict from the 'words with most anagrams'
+	# 			pass
 
 
 
 def update_stats_post_multiple_deletion(key):
-	global min_word_length
-	global max_word_length
-	global total_word_count
-	global avg_word_length
-	global max_num_anagrams
-	global anagram_dict
-	global words_with_most_anagrams
+	# global min_word_length
+	# global max_word_length
+	# global total_word_count
+	# global avg_word_length
+	# global max_num_anagrams
+	# global anagram_dict
+	# global words_with_most_anagrams
+
+	avg_word_length = my_redis.get('avg_word_length')
+	total_word_count = my_redis.get('total_word_count')
+	max_heap_for_median = my_redis.get('max_heap_for_median')
+	min_heap_for_median = my_redis.get('min_heap_for_median')
+	anagram_dict = my_redis.get('anagram_dict')
 
 	arr = anagram_dict[key]
 	key_len = len(key)
 	list_len = len(arr)
 
-	avg_word_length = (avg_word_length*total_word_count - key_len*list_len)/(total_word_count - list_len)
-	total_word_count -= list_len
+	# avg_word_length = (avg_word_length*total_word_count - key_len*list_len)/(total_word_count - list_len)
+	my_redis.set('avg_word_length', (avg_word_length*total_word_count - key_len*list_len)/(total_word_count - list_len))
 
-	if list_len == max_num_anagrams:
-		if len(words_with_most_anagrams) == list_len:
-			#need to update both
-			pass
-		else:
-			#remove everything in arr from 'words with most anagrams'
-			pass
+	# total_word_count -= list_len
+	my_redis.set('total_word_count', total_word_count - list_len)
+
+	# if list_len == max_num_anagrams:
+	# 	if len(words_with_most_anagrams) == list_len:
+	# 		#need to update both
+	# 		pass
+	# 	else:
+	# 		#remove everything in arr from 'words with most anagrams'
+	# 		pass
 
 	del anagram_dict[key]
 	
 	if key_len == min_word_length:
 		keys = anagram_dict.keys()
-		min_word_length = min(keys, key=len)
+		# min_word_length = min(keys, key=len)
+		my_redis.set('min_word_length', len(min(keys, key=len)))
 	if key_len == max_word_length:
 		keys = anagram_dict.keys()
-		max_word_length = max(keys, key=len)
+		# max_word_length = max(keys, key=len)
+		my_redis.set('max_word_length', len(max(keys, key=len)))
 
 
 
@@ -201,6 +255,9 @@ def anagrams_of_each_other():
 		return jsonify({'Error': 'Please input at least 2 words in the valid format. Ex: url/?word="try"&word="again"'})
 
 	letters = sort_word(words[0])
+
+	anagram_dict = my_redis.get('anagram_dict')
+
 	try:
 		arr = anagram_dict[letters]
 		for word in words:
@@ -214,7 +271,9 @@ def anagrams_of_each_other():
 
 @app.route('/anagrams/', methods=['GET'])
 def get():
-	global anagram_dict
+	# global anagram_dict
+
+	anagram_dict = my_redis.get('anagram_dict')
 
 	words = request.args.getlist('word')
 	if len(words) < 1:
@@ -251,13 +310,21 @@ def post():
 	if not request.get_json() or not request.get_json()['words']:
 		abort(400)
 
-	global min_word_length
-	global max_word_length
-	global total_word_count
-	global avg_word_length
-	global max_num_anagrams
-	global words_with_most_anagrams
-	global anagram_dict
+	# global min_word_length
+	# global max_word_length
+	# global total_word_count
+	# global avg_word_length
+	# global max_num_anagrams
+	# global words_with_most_anagrams
+	# global anagram_dict
+
+	anagram_dict = my_redis.get('anagram_dict')
+	avg_word_length = my_redis.get('avg_word_length')
+	total_word_count = my_redis.get('total_word_count')
+	min_word_length = my_redis.get('min_word_length')
+	max_word_length = my_redis.get('max_word_length')
+	max_num_anagrams = my_redis.get('max_num_anagrams')
+	words_with_most_anagrams = my_redis.get('words_with_most_anagrams')
 
 	arr = request.get_json()['words']
 
@@ -290,34 +357,44 @@ def post():
 		else:
 			anagram_dict[sorted_word] = [word]
 
+		my_redis.set('anagram_dict', anagram_dict)
 
 		#purely for updating word stats		
 		l = len(word)
 		if l < min_word_length:
-			min_word_length = l
+			# min_word_length = l
+			my_redis.set('min_word_length', l)
 		if l > max_word_length:
-			max_word_length = l
+			# max_word_length = l
+			my_redis.set('max_word_length', l)
 
 		adding_to_median(l)
 
-		total_word_count += 1
-		avg_word_length = calc_new_avg_word_length(l)
+		# total_word_count += 1
+		my_redis.incr('total_word_count')
+
+		# avg_word_length = calc_new_avg_word_length(l)
+		my_redis.set('avg_word_length', calc_new_avg_word_length(l))
 
 		#for updating things regarding 'most anagrams'
 		curr_arr = anagram_dict[sorted_word]
 		length_curr_arr = len(curr_arr)
 		if length_curr_arr > max_num_anagrams:
-			max_num_anagrams = length_curr_arr
-			words_with_most_anagrams = curr_arr
+			# max_num_anagrams = length_curr_arr
+			# words_with_most_anagrams = curr_arr
+
+			my_redis.set('max_num_anagrams', length_curr_arr)
+			my_redis.set('words_with_most_anagrams', curr_arr)
 		elif length_curr_arr == max_num_anagrams:
-			words_with_most_anagrams = words_with_most_anagrams + curr_arr
+			# words_with_most_anagrams = words_with_most_anagrams + curr_arr
+			my_redis.set('words_with_most_anagrams', words_with_most_anagrams + curr_arr)
 
 	return jsonify({'Success': 'Saved all words to the corpus, sans duplicates'}), 201
 
 
 @app.route('/words/', methods=['DELETE'])
 def single_delete():
-	global anagram_dict
+	# global anagram_dict
 
 	words = request.args.getlist('word')
 	if len(words) < 1:
@@ -325,6 +402,9 @@ def single_delete():
 
 	successes = []
 	failures = []
+
+	anagram_dict = my_redis.get('anagram_dict')
+
 	for word in words:
 		sorted_word = sort_word(word)
 		try:
@@ -342,46 +422,62 @@ def single_delete():
 				failures.append(word)
 		except KeyError:
 			failures.append(word)
+
+	my_redis.set('anagram_dict', anagram_dict)
+
 	if len(successes) == 0:
 		jsonify({'Error': failures})
 	return jsonify({'Success': successes, 'Error': failures}), 200
 
 @app.route('/', methods=['DELETE'])
 def complete_deletion():
-	global min_word_length
-	global max_word_length
-	global total_word_count
-	global avg_word_length
-	global max_num_anagrams
-	global words_with_most_anagrams
-	global anagram_dict
-	global min_heap_for_median
-	global max_heap_for_median
+	# global min_word_length
+	# global max_word_length
+	# global total_word_count
+	# global avg_word_length
+	# global max_num_anagrams
+	# global words_with_most_anagrams
+	# global anagram_dict
+	# global min_heap_for_median
+	# global max_heap_for_median
 
 
-	anagram_dict = {}
-	total_word_count = 0
-	min_word_length = 25
-	max_word_length = 0
-	avg_word_length = 0
-	min_heap_for_median = []
-	max_heap_for_median = []
+	# anagram_dict = {}
+	# total_word_count = 0
+	# min_word_length = 25
+	# max_word_length = 0
+	# avg_word_length = 0
+	# min_heap_for_median = []
+	# max_heap_for_median = []
 
-	max_num_anagrams = 0
-	words_with_most_anagrams = []
+	# max_num_anagrams = 0
+	# words_with_most_anagrams = []
+
+	my_redis.set('anagram_dict', {})
+	my_redis.set(total_word_count, 0)
+	my_redis.set(min_word_length, 25)
+	my_redis.set(max_word_length, 0)
+	my_redis.set(avg_word_length, float(0))
+	my_redis.set(min_heap_for_median, [])
+	my_redis.set(max_heap_for_median, [])
+	my_redis.set(max_num_anagrams, 0)
+	my_redis.set(words_with_most_anagrams, [])
 
 	return jsonify({'Success': 'Successfully deleted everything.'}), 200
 
 
 @app.route('/anagrams/', methods=['DELETE'])
 def delete_all_anagrams():
-	global anagram_dict
+	# global anagram_dict
 
 	words = request.args.getlist('word')
 	if len(words) < 1:
 		return jsonify({'Error': "You either didn't input a word or used an incorrect format. Please use '/anagrams/?word=insert_word_here&word=additional_words'"})
 
 	successes = []
+
+	anagram_dict = my_redis.get('anagram_dict')
+
 	for word in words:
 		key = sort_word(word)
 		if key in anagram_dict:
@@ -400,12 +496,19 @@ def delete_all_anagrams():
 #count of words in the corpus and min/max/median/average word length
 @app.route('/stats', methods=['GET'])
 def datastore_stats():
-	global min_word_length
-	global max_word_length
-	global total_word_count
-	global avg_word_length
-	global max_num_anagrams
-	global words_with_most_anagrams
+	# global min_word_length
+	# global max_word_length
+	# global total_word_count
+	# global avg_word_length
+	# global max_num_anagrams
+	# global words_with_most_anagrams
+
+	avg_word_length = my_redis.get('avg_word_length')
+	total_word_count = my_redis.get('total_word_count')
+	min_word_length = my_redis.get('min_word_length')
+	max_word_length = my_redis.get('max_word_length')
+	max_num_anagrams = my_redis.get('max_num_anagrams')
+	words_with_most_anagrams = my_redis.get('words_with_most_anagrams')
 
 	if total_word_count == 0:
 		return jsonify({'Error': "Everything is 0. There aren't any words here yet!"})
@@ -432,7 +535,8 @@ def not_found(error_code):
     return make_response(jsonify({'Error': 'Not Found'}), 404)
 
 if __name__ == '__main__':
-    app.run()
+	port = int(os.environ.get("PORT", 5000))
+    app.run(port=port)
 
 
 
